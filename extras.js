@@ -38,7 +38,7 @@
     ['Ratio K/D', (o) => o.kd, [1, 2, 3]],
   ];
   function badges(o) {
-    return el('section', { class: 't c7' }, el('h3', {}, 'Badges'),
+    return el('section', { class: 't c12' }, el('h3', {}, 'Badges'),
       el('p', { class: 'sub' }, 'Les paliers jaunes sont débloqués.'),
       DEFS.map(([label, get, steps]) => el('div', { class: 'bd' }, el('span', {}, label),
         steps.map((s) => el('span', { class: 'chip ' + (get(o) >= s ? 'on' : 'off') }, fmt(s))))));
@@ -87,7 +87,8 @@
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.setAttribute('role', 'img'); svg.setAttribute('aria-label', title);
     const pl = document.createElementNS(NS, 'polyline');
     pl.setAttribute('points', xy.map((p) => p.join(',')).join(' '));
-    Object.assign(pl.style, { fill: 'none', stroke: 'var(--fill)', strokeWidth: '3', strokeLinejoin: 'round', strokeLinecap: 'round' });
+    Object.assign(pl.style, { fill: 'none', stroke: 'var(--fill)', strokeWidth: '3', strokeLinejoin: 'round', strokeLinecap: 'round', strokeDasharray: '1', strokeDashoffset: '1' });
+    pl.setAttribute('pathLength', '1');
     svg.append(pl);
     return el('div', { class: 'chart' }, el('p', { class: 'lbl' }, title), el('p', { class: 'val' }, f(pts[pts.length - 1])), svg);
   }
@@ -140,10 +141,10 @@
       const c = document.createElement('canvas'); c.width = c.height = 1080;
       const x = c.getContext('2d'), F = '"Bricolage Grotesque", system-ui, sans-serif';
       const bar = (px, w, col) => { x.fillStyle = col; x.beginPath(); if (x.roundRect) x.roundRect(px, 640, w, 36, 18); else x.rect(px, 640, w, 36); x.fill(); };
-      x.fillStyle = '#3B4BFF'; x.fillRect(0, 0, 1080, 1080);
+      x.fillStyle = '#2F3C55'; x.fillRect(0, 0, 1080, 1080);
       x.fillStyle = '#fff'; x.font = '600 48px ' + F; x.fillText(ctx.name, 80, 140);
       x.font = '800 118px ' + F; x.fillText(fmt(wins) + ' victoires', 80, 380); x.fillText(fmt(loss) + ' défaites', 80, 510);
-      bar(80, 920, '#FFA3B8'); bar(80, Math.max(920 * pct / 100, 36), '#6EF0CB');
+      bar(80, 920, '#B8606B'); bar(80, Math.max(920 * pct / 100, 36), '#5FA88A');
       x.font = '800 84px ' + F; x.fillText('K/D ' + dec(o.kd), 80, 840); x.fillText(fmt(o.kills) + ' kills', 80, 950);
       x.font = '600 36px ' + F; x.globalAlpha = .75; x.fillText(location.host, 80, 1030);
       c.toBlob(async (blob) => {
@@ -161,13 +162,13 @@
   }
 
   window.FNX = {
-    tiles(ctx) {
-      if (!ctx.o) return [];
+    parts(ctx) {
+      if (!ctx.o) return {};
       const ins = insights(ctx.stats);
-      return [
-        ins.length ? el('section', { class: 't c12' }, el('h3', {}, 'Ce que disent tes stats'), ins.map((s) => el('p', { class: 'ins' }, s))) : null,
-        badges(ctx.o), goals(ctx), charts(ctx), compare(ctx), share(ctx),
-      ].filter(Boolean);
+      return {
+        insights: ins.length ? el('section', { class: 't c5' }, el('h3', {}, 'Ce que disent tes stats'), ins.map((s) => el('p', { class: 'ins' }, s))) : null,
+        badges: badges(ctx.o), goals: goals(ctx), charts: charts(ctx), compare: compare(ctx), share: share(ctx),
+      };
     },
   };
 })();
