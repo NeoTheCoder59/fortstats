@@ -25,5 +25,6 @@ Dans Fortnite, les statistiques de carrière doivent être en public (paramètre
 
 ## Limites
 - Pas de vraie connexion à un compte Epic/PSN : le site recherche un pseudo public.
-- Epic ne fournit ni le nombre de coffres ouverts, ni la liste des parties une par une.
+- Le nombre de coffres ouverts n'est pas dans l'API publique : le site propose un compteur à saisir à la main (à initialiser avec l'onglet Quêtes > Chasse au trésor du jeu).
+- Epic ne fournit pas la liste des parties une par une.
 - L'historique est reconstitué en comparant tes visites successives (stocké dans ton navigateur).

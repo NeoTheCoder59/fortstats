@@ -3,9 +3,15 @@
   const nf = new Intl.NumberFormat('fr-FR');
   const fmt = (n) => nf.format(Math.round(n || 0));
   const dec = (n, d = 2) => (n || 0).toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const plural = (n, un, plus) => (n > 1 ? plus : un);
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  };
+  const getPlatform = () => document.querySelector('input[name=platform]:checked').value;
+  const setPlatform = (v) => {
+    const r = document.querySelector('input[name=platform][value="' + v + '"]');
+    if (r) r.checked = true;
   };
   const MODES = [['overall', 'Tous modes'], ['solo', 'Solo'], ['duo', 'Duo'], ['trio', 'Trio'], ['squad', 'Squad']];
 
@@ -46,43 +52,75 @@
   function tabs() {
     return el('div', { class: 'tabs', role: 'group', 'aria-label': 'Mode de jeu' },
       MODES.filter(([k]) => current.stats[k] && (k === 'overall' || current.stats[k].matches)).map(([k, label]) => {
-        const b = el('button', { type: 'button', 'aria-pressed': String(k === mode) }, label);
+        const b = el('button', { type: 'button', class: 'pill', 'aria-pressed': String(k === mode) }, label);
         b.addEventListener('click', () => { mode = k; render(); });
         return b;
       }));
   }
 
+  function tile(label, value, sub) {
+    return el('div', { class: 't k' }, el('p', { class: 'lbl' }, label), el('p', { class: 'val' }, value), sub ? el('p', { class: 'sub' }, sub) : null);
+  }
+
+  // Coffres : Epic ne les expose pas dans l'API publique. Saisie manuelle, enregistrée dans le navigateur.
+  function coffres() {
+    const key = 'fnstats:coffres:' + current.account.id;
+    let v = { t: 0, r: 0, s: 0 };
+    try { v = { ...v, ...JSON.parse(store.get(key) || '{}') }; } catch {}
+    const total = el('b', {}, '');
+    const maj = () => { total.textContent = fmt(v.t + v.r + v.s); store.set(key, JSON.stringify(v)); };
+    const ligne = (id, label, plafond) => {
+      const input = el('input', { type: 'number', min: '0', inputmode: 'numeric', 'aria-label': label });
+      input.value = v[id];
+      input.addEventListener('input', () => { v[id] = Math.max(0, parseInt(input.value, 10) || 0); maj(); });
+      const plus = (n) => {
+        const b = el('button', { type: 'button' }, '+' + n);
+        b.addEventListener('click', () => { v[id] += n; input.value = v[id]; maj(); });
+        return b;
+      };
+      return el('div', { class: 'coffre' }, el('span', {}, label, el('small', {}, 'Quête plafonnée à ' + plafond)), input, plus(1), plus(5));
+    };
+    const bloc = el('section', { class: 't coffres-t' },
+      el('h3', {}, 'Coffres ouverts cette saison'),
+      el('p', { class: 'sub' }, "Epic ne transmet pas ce chiffre aux sites tiers. Dans le lobby, ouvre Quêtes, puis Chasse au trésor (Treasure Hunt), recopie tes compteurs ici et ajoute tes coffres après chaque session."),
+      ligne('t', 'Coffres au trésor', '1 000'),
+      ligne('r', 'Coffres rares', '100'),
+      ligne('s', 'Coffres à esprit', '100'),
+      el('p', { class: 'total' }, 'Total ', total));
+    maj();
+    return bloc;
+  }
+
   function historique() {
-    const bloc = el('section', { class: 'bloc' },
-      el('h2', {}, 'Historique des sessions'),
-      el('p', {}, "Chaque fois que tu consultes ton profil, le site le compare à ta visite précédente. Si tu as joué plusieurs parties entre deux visites, elles sont regroupées sur une ligne."));
+    const bloc = el('section', { class: 't hist' },
+      el('h3', {}, 'Historique des sessions'),
+      el('p', { class: 'sub' }, "À chaque visite, le site compare ton profil à la visite précédente. Les parties jouées entre deux visites sont regroupées sur une ligne."));
     if (sessions.length < 2) {
       bloc.append(el('p', { class: 'empty' }, "Pas encore d'historique. Joue quelques parties, puis reviens consulter ton profil : la session apparaîtra ici."));
       return bloc;
     }
-    const rows = [];
+    const items = [];
     for (let i = sessions.length - 1; i >= 1; i--) {
       const a = sessions[i - 1], b = sessions[i];
-      rows.push(el('tr', {},
-        el('td', {}, new Date(b.t).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })),
-        el('td', {}, '+' + fmt(b.m - a.m)),
-        el('td', {}, '+' + fmt(b.k - a.k)),
-        el('td', { class: b.w - a.w > 0 ? 'win' : '' }, '+' + fmt(b.w - a.w)),
-        el('td', {}, '+' + fmt(b.t10 - a.t10))));
+      const dm = b.m - a.m, dk = b.k - a.k, dw = b.w - a.w, dt = b.t10 - a.t10;
+      items.push(el('li', {},
+        el('time', {}, new Date(b.t).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })),
+        el('span', { class: 'chips' },
+          el('span', { class: 'chip' }, '+' + fmt(dm) + ' ' + plural(dm, 'partie', 'parties')),
+          el('span', { class: 'chip' }, '+' + fmt(dk) + ' ' + plural(dk, 'kill', 'kills')),
+          dw > 0 ? el('span', { class: 'chip win' }, '+' + fmt(dw) + ' ' + plural(dw, 'victoire', 'victoires')) : null,
+          el('span', { class: 'chip' }, '+' + fmt(dt) + ' top 10'))));
     }
-    bloc.append(el('div', { class: 'table-wrap' }, el('table', {},
-      el('thead', {}, el('tr', {}, ['Date', 'Parties', 'Kills', 'Victoires', 'Top 10'].map((h) => el('th', {}, h)))),
-      el('tbody', {}, rows))));
+    bloc.append(el('ul', { class: 'sessions' }, items));
     return bloc;
   }
 
   function render() {
     const out = $('#out');
-    out.replaceChildren();
+    out.replaceChildren(tabs());
     const s = current.stats[mode];
-    out.append(tabs());
     if (!s || !s.matches) {
-      out.append(el('p', { class: 'empty' }, 'Aucune partie jouée dans ce mode.'), historique());
+      out.append(el('p', { class: 'empty' }, 'Aucune partie jouée dans ce mode.'), el('div', { class: 'grid' }, coffres(), historique()));
       return;
     }
     const wins = s.wins || 0;
@@ -90,38 +128,39 @@
     const losses = Math.max(matches - wins, 0);
     const pct = (wins / matches) * 100;
 
-    out.append(el('section', { class: 'hero' },
-      el('p', { class: 'who' }, current.account.name),
-      el('h2', {}, el('span', { class: 'v' }, fmt(wins) + ' victoires'), ', ', el('span', { class: 'd' }, fmt(losses) + ' défaites')),
-      (() => {
-        const bar = el('div', { class: 'split', role: 'img', 'aria-label': dec(pct, 1) + ' % de victoires' }, el('span', { class: 'w' }));
-        bar.firstChild.style.setProperty('--p', pct + '%');
-        return bar;
-      })(),
-      el('p', { class: 'ratio' }, 'Ratio victoires/défaites : ', el('b', {}, losses ? dec(wins / losses) : '—'), ' · taux de victoire ', el('b', {}, dec(pct, 1) + ' %'))));
+    const bar = el('div', { class: 'split', role: 'img', 'aria-label': dec(pct, 1) + ' % de victoires' }, el('span', { class: 'w' }));
+    bar.firstChild.style.setProperty('--p', pct + '%');
 
-    const tiles = [
-      ['Parties', fmt(matches)],
-      ['Kills', fmt(s.kills)],
-      ['Ratio K/D', dec(s.kd)],
-      ['Kills par partie', dec(s.killsPerMatch)],
-      ['Temps de jeu', fmt((s.minutesPlayed || 0) / 60) + ' h'],
-    ];
-    out.append(el('dl', { class: 'stats' }, tiles.map(([t, v]) => el('div', {}, el('dt', {}, t), el('dd', {}, v)))),
-      el('p', { class: 'note' }, "Le nombre de coffres ouverts n'est pas fourni par Epic, il ne peut donc pas être affiché."));
+    const hero = el('section', { class: 't hero' },
+      el('p', { class: 'who' }, current.account.name),
+      el('h2', {}, fmt(wins) + ' ' + plural(wins, 'victoire', 'victoires') + ' et ' + fmt(losses) + ' ' + plural(losses, 'défaite', 'défaites')),
+      bar,
+      el('p', { class: 'legend' },
+        el('span', {}, el('span', { class: 'dot w' }), 'Victoires'),
+        el('span', {}, el('span', { class: 'dot l' }), 'Défaites')));
+
+    const ratio = el('div', { class: 't ratio-t' },
+      el('p', { class: 'lbl' }, 'Ratio victoires/défaites'),
+      el('div', {}, el('p', { class: 'val' }, losses ? dec(wins / losses) : '—'), el('p', { class: 'sub' }, dec(pct, 1) + ' % de victoires')));
 
     const places = [['Top 1', wins], ['Top 3', s.top3], ['Top 5', s.top5], ['Top 6', s.top6], ['Top 10', s.top10], ['Top 12', s.top12], ['Top 25', s.top25]]
       .filter(([, v]) => v > 0);
-    out.append(el('section', { class: 'bloc' },
-      el('h2', {}, 'Classements atteints'),
-      el('p', {}, 'Chaque palier inclut les paliers inférieurs : un top 1 compte aussi dans le top 10.'),
+    const place = el('section', { class: 't place' },
+      el('h3', {}, 'Classements atteints'),
+      el('p', { class: 'sub' }, 'Chaque palier inclut les précédents : un top 1 compte aussi dans le top 10.'),
       el('div', { class: 'rows' }, places.map(([label, v]) => {
         const i = el('i');
         i.style.width = Math.min((v / matches) * 100, 100) + '%';
         return el('div', { class: 'row' }, el('span', {}, label), el('span', { class: 'bar' }, i), el('span', {}, fmt(v)));
-      }))));
+      })));
 
-    out.append(historique());
+    out.append(el('div', { class: 'grid' },
+      hero, ratio,
+      tile('Parties', fmt(matches)),
+      tile('Kills', fmt(s.kills), dec(s.killsPerMatch) + ' par partie'),
+      tile('Ratio K/D', dec(s.kd)),
+      tile('Temps de jeu', fmt((s.minutesPlayed || 0) / 60) + ' h'),
+      place, coffres(), historique()));
   }
 
   async function load(name, platform) {
@@ -144,7 +183,7 @@
   $('#form').addEventListener('submit', (e) => {
     e.preventDefault();
     const name = $('#name').value.trim();
-    const platform = $('#platform').value;
+    const platform = getPlatform();
     store.set('fnstats:last', JSON.stringify({ name, platform }));
     load(name, platform);
   });
@@ -153,7 +192,7 @@
     const last = JSON.parse(store.get('fnstats:last') || 'null');
     if (last && last.name) {
       $('#name').value = last.name;
-      $('#platform').value = last.platform;
+      setPlatform(last.platform);
       load(last.name, last.platform);
     }
   } catch {}

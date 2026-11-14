@@ -3,29 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mes stats Fortnite</title>
+  <title>Fortnite Stats</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="top">
-    <h1>Mes stats Fortnite</h1>
-    <form id="form">
-      <label class="sr" for="platform">Plateforme</label>
-      <select id="platform">
-        <option value="epic">Epic Games</option>
-        <option value="psn">PlayStation</option>
-        <option value="xbl">Xbox</option>
-      </select>
-      <label class="sr" for="name">Pseudo</label>
-      <input id="name" required maxlength="64" placeholder="Ton pseudo" autocomplete="off">
-      <button type="submit">Afficher mes stats</button>
-    </form>
-    <p class="hint">Tes statistiques doivent être publiques : dans Fortnite, ouvre les paramètres de confidentialité et autorise l'affichage des statistiques de carrière.</p>
-  </header>
-  <main id="out" aria-live="polite"></main>
+  <div class="wrap">
+    <header class="top">
+      <h1>Fortnite Stats</h1>
+      <form id="form" class="search">
+        <fieldset class="seg">
+          <legend class="sr">Plateforme</legend>
+          <label><input type="radio" name="platform" value="epic" checked><span>Epic</span></label>
+          <label><input type="radio" name="platform" value="psn"><span>PlayStation</span></label>
+          <label><input type="radio" name="platform" value="xbl"><span>Xbox</span></label>
+        </fieldset>
+        <label class="sr" for="name">Pseudo</label>
+        <input id="name" required maxlength="64" placeholder="Ton pseudo" autocomplete="off">
+        <button type="submit">Voir mes stats</button>
+      </form>
+      <p class="hint">Tes statistiques doivent être publiques : dans Fortnite, ouvre les paramètres de confidentialité et autorise l'affichage des statistiques de carrière.</p>
+    </header>
+    <main id="out" aria-live="polite">
+      <section class="intro">
+        <h2>Tes victoires, tes kills, tes classements.</h2>
+        <p>Entre ton pseudo pour afficher tes stats de carrière et suivre tes sessions.</p>
+      </section>
+    </main>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
