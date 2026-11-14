@@ -94,3 +94,25 @@ button{font:inherit;cursor:pointer}
   .ratio-t{flex-direction:row;align-items:flex-end;justify-content:space-between;gap:12px}
 }
 @media (prefers-reduced-motion:reduce){.split .w{animation:none}.seg span{transition:none}}
+
+/* Fonctionnalités en plus */
+.c5{grid-column:span 5}.c7{grid-column:span 7}.c12{grid-column:1/-1}
+.ins{margin:6px 0;font-size:1.05rem}
+.bd{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:10px}
+.bd>span:first-child{width:112px;color:var(--muted);font-size:.88rem}
+.chip.on{background:var(--sun);color:var(--on-sun)}
+.chip.off{opacity:.45}
+.meter{height:12px;border-radius:999px;background:var(--bg);overflow:hidden;margin:6px 0 12px}
+.meter i{display:block;height:100%;border-radius:999px;background:var(--fill)}
+.goal,.cmp,.acts{display:flex;flex-wrap:wrap;gap:8px}
+.cmp{margin-bottom:14px}
+.goal select,.goal input,.cmp select,.cmp input{font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.goal input,.cmp input{flex:1 1 120px;min-width:0}
+.goal+div{margin-top:12px}
+.goal button,.cmp button,.acts button,.t>div>button{background:var(--text);color:var(--bg);border:0;border-radius:999px;padding:8px 18px;font-weight:600}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:24px}
+.chart svg{width:100%;height:auto;margin-top:8px}
+.vr{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+.vr.head{border-top:0}
+.vr .lead{font-weight:800;color:var(--fill)}
+@media (max-width:820px){.c5,.c7{grid-column:span 12}}

@@ -68,7 +68,13 @@
     let v = { t: 0, r: 0, s: 0 };
     try { v = { ...v, ...JSON.parse(store.get(key) || '{}') }; } catch {}
     const total = el('b', {}, '');
-    const maj = () => { total.textContent = fmt(v.t + v.r + v.s); store.set(key, JSON.stringify(v)); };
+    const chance = el('p', { class: 'sub' }, '');
+    const maj = () => {
+      const n = v.t + v.r + v.s;
+      total.textContent = fmt(n);
+      chance.textContent = n ? "Chance d'avoir déjà trouvé le jeton de la boutique pirate : " + dec(-Math.expm1(n * Math.log1p(-1 / 137500)) * 100, 2) + ' % (estimation avec un taux de 1 sur 137 500 par coffre, relayé par des sites tiers).' : '';
+      store.set(key, JSON.stringify(v));
+    };
     const ligne = (id, label, plafond) => {
       const input = el('input', { type: 'number', min: '0', inputmode: 'numeric', 'aria-label': label });
       input.value = v[id];
@@ -86,7 +92,7 @@
       ligne('t', 'Coffres au trésor', '1 000'),
       ligne('r', 'Coffres rares', '100'),
       ligne('s', 'Coffres à esprit', '100'),
-      el('p', { class: 'total' }, 'Total ', total));
+      el('p', { class: 'total' }, 'Total ', total), chance);
     maj();
     return bloc;
   }
@@ -160,18 +166,25 @@
       tile('Kills', fmt(s.kills), dec(s.killsPerMatch) + ' par partie'),
       tile('Ratio K/D', dec(s.kd)),
       tile('Temps de jeu', fmt((s.minutesPlayed || 0) / 60) + ' h'),
-      place, coffres(), historique()));
+      place, coffres(),
+      ...(window.FNX ? window.FNX.tiles({ id: current.account.id, name: current.account.name, o: current.stats.overall, stats: current.stats, sessions, fetchStats }) : []),
+      historique()));
+  }
+
+  async function fetchStats(name, platform) {
+    const r = await fetch('/api/stats?name=' + encodeURIComponent(name) + '&platform=' + encodeURIComponent(platform));
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || 'Erreur ' + r.status);
+    if (!j.stats || !j.stats.all) throw new Error('Aucune statistique disponible pour ce compte.');
+    return { account: j.account, stats: j.stats.all };
   }
 
   async function load(name, platform) {
     const out = $('#out');
     out.replaceChildren(el('p', { class: 'status' }, 'Chargement…'));
     try {
-      const r = await fetch('/api/stats?name=' + encodeURIComponent(name) + '&platform=' + encodeURIComponent(platform));
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.error || 'Erreur ' + r.status);
-      if (!j.stats || !j.stats.all) throw new Error('Aucune statistique disponible pour ce compte.');
-      current = { account: j.account, stats: j.stats.all };
+      current = await fetchStats(name, platform);
+      try { history.replaceState(null, '', '?name=' + encodeURIComponent(name) + '&platform=' + platform); } catch {}
       mode = 'overall';
       sessions = snapshot();
       render();
@@ -189,11 +202,13 @@
   });
 
   try {
-    const last = JSON.parse(store.get('fnstats:last') || 'null');
+    const q = new URLSearchParams(location.search);
+    const last = q.get('name') ? { name: q.get('name'), platform: q.get('platform') || 'epic' } : JSON.parse(store.get('fnstats:last') || 'null');
     if (last && last.name) {
       $('#name').value = last.name;
       setPlatform(last.platform);
       load(last.name, last.platform);
     }
   } catch {}
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
