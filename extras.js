@@ -121,7 +121,7 @@
         const f = await ctx.fetchStats(n, sel.value), a = ctx.o, b = f.stats.overall;
         if (!b) throw new Error('Aucune statistique pour ce joueur.');
         res.replaceChildren(el('div', { class: 'vr head' }, el('span'), el('b', {}, ctx.name), el('b', {}, f.account.name)),
-          rows.map(([l, g, ff]) => {
+          ...rows.map(([l, g, ff]) => {
             const va = g(a) || 0, vb = g(b) || 0;
             return el('div', { class: 'vr' }, el('span', {}, l), el('span', { class: va > vb ? 'lead' : '' }, ff(va)), el('span', { class: vb > va ? 'lead' : '' }, ff(vb)));
           }));
