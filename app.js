@@ -416,7 +416,7 @@
     }
   }
 
-  function home() { current = null; view = 'apercu'; render(); }
+  function home() { current = null; view = 'apercu'; $('#name').value = ''; render(); }
 
   function route() {
     const q = new URLSearchParams(location.search), name = q.get('name');
@@ -435,18 +435,12 @@
   $('#form').addEventListener('submit', (e) => {
     e.preventDefault();
     const name = $('#name').value.trim(), platform = getPlatform();
-    store.set('fnstats:last', JSON.stringify({ name, platform }));
     history.pushState(null, '', '?name=' + encodeURIComponent(name) + '&platform=' + platform);
     load(name, platform);
   });
 
   window.addEventListener('popstate', route);
 
-  // Pré-remplit le formulaire avec le dernier pseudo, sans ouvrir son profil : l'adresse nue mène à l'accueil.
-  try {
-    const last = JSON.parse(store.get('fnstats:last') || 'null');
-    if (last && last.name) { $('#name').value = last.name; setPlatform(last.platform); }
-  } catch {}
   route();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();
