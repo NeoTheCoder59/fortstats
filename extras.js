@@ -139,12 +139,12 @@
     const link = el('button', { type: 'button' }, 'Copier le lien');
     img.addEventListener('click', () => {
       const c = document.createElement('canvas'); c.width = c.height = 1080;
-      const x = c.getContext('2d'), F = '"Bricolage Grotesque", system-ui, sans-serif';
+      const x = c.getContext('2d'), F = '"Barlow Condensed", system-ui, sans-serif';
       const bar = (px, w, col) => { x.fillStyle = col; x.beginPath(); if (x.roundRect) x.roundRect(px, 640, w, 36, 18); else x.rect(px, 640, w, 36); x.fill(); };
-      x.fillStyle = '#2A2623'; x.fillRect(0, 0, 1080, 1080);
-      x.fillStyle = '#E8E3D9'; x.font = '600 48px ' + F; x.fillText(ctx.name, 80, 140);
+      x.fillStyle = '#231E63'; x.fillRect(0, 0, 1080, 1080);
+      x.fillStyle = '#F2F1FF'; x.font = '600 48px ' + F; x.fillText(ctx.name, 80, 140);
       x.font = '800 118px ' + F; x.fillText(fmt(wins) + ' victoires', 80, 380); x.fillText(fmt(loss) + ' défaites', 80, 510);
-      bar(80, 920, '#A5594F'); bar(80, Math.max(920 * pct / 100, 36), '#8FA596');
+      bar(80, 920, '#D2535F'); bar(80, Math.max(920 * pct / 100, 36), '#E6B93A');
       x.font = '800 84px ' + F; x.fillText('K/D ' + dec(o.kd), 80, 840); x.fillText(fmt(o.kills) + ' kills', 80, 950);
       x.font = '600 36px ' + F; x.globalAlpha = .75; x.fillText(location.host, 80, 1030);
       c.toBlob(async (blob) => {
