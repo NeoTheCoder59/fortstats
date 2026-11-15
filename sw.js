@@ -1,5 +1,5 @@
 // Réseau d'abord (le site reste à jour), cache en secours hors connexion. L'API n'est jamais mise en cache.
-const C = 'fnstats-v2';
+const C = 'fnstats-v3';
 self.addEventListener('install', (e) => e.waitUntil(
   caches.open(C).then((c) => c.addAll(['./', 'index.html', 'style.css', 'app.js', 'extras.js'])).then(() => self.skipWaiting())));
 self.addEventListener('activate', (e) => e.waitUntil(
