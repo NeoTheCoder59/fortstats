@@ -2,6 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('fnstats:theme')||'fortnite'}catch(e){document.documentElement.dataset.theme='fortnite'}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Fortstats</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,6 +23,9 @@
       <span>FORT<b>STATS</b></span>
     </a>
     <nav id="nav" class="nav" aria-label="Sections"></nav>
+    <label class="theme"><span class="sr">Thème</span>
+      <select id="theme"><option value="fortnite">Fortnite</option><option value="sobre">Sobre</option><option value="minuit">Minuit</option></select>
+    </label>
   </header>
 
   <section class="lobby">
@@ -40,6 +44,8 @@
   </section>
 
   <main id="out" class="main" aria-live="polite"></main>
+
+  <footer class="foot">Fortstats est un site non officiel, non affilié à Epic Games et non approuvé par Epic Games. Fortnite et Epic Games sont des marques ou marques déposées d'Epic Games, Inc. Données fournies par fortnite-api.com.</footer>
 
   <script src="extras.js"></script>
   <script src="app.js"></script>

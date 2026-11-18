@@ -14,9 +14,10 @@
   const setPlatform = (v) => { const r = document.querySelector('input[name=platform][value="' + v + '"]'); if (r) r.checked = true; };
   const MODES = [['overall', 'Tous modes'], ['solo', 'Solo'], ['duo', 'Duo'], ['trio', 'Trio'], ['squad', 'Squad']];
   const NAMES = { solo: 'Solo', duo: 'Duo', trio: 'Trio', squad: 'Squad' };
-  const VIEWS = [['apercu', 'Aperçu'], ['progression', 'Progression'], ['coffres', 'Coffres'], ['amis', 'Amis et partage'], ['classement', 'Classement'], ['bilan', 'Bilan de saison']];
+  const VIEWS = [['apercu', 'Aperçu'], ['progression', 'Progression'], ['coffres', 'Coffres'], ['amis', 'Amis et partage'], ['classement', 'Classement'], ['bilan', 'Bilan de saison'], ['boutique', 'Boutique']];
+  const FREE = ['classement', 'boutique'];
 
-  let current = null, mode = 'overall', view = 'apercu', sessions = [];
+  let current = null, mode = 'overall', view = 'apercu', sessions = [], timer = null;
 
   function el(tag, attrs = {}, ...kids) {
     const e = document.createElement(tag);
@@ -79,12 +80,15 @@
   function hero(s) {
     const wins = s.wins || 0, m = s.matches, losses = Math.max(m - wins, 0), pct = m ? (wins / m) * 100 : 0;
     const wN = el('span'), lN = el('span'), pN = el('b');
+    const bp = current.battlePass;
+    const bpLine = bp && bp.level != null ? el('p', { class: 'ratio' }, 'Passe de combat : niveau ', el('b', {}, fmt(bp.level))) : null;
     count(wN, wins, fmt); count(lN, losses, fmt); count(pN, pct, (v) => dec(v, 1) + ' %');
     return el('section', { class: 't hero' },
       el('div', {},
-        el('p', { class: 'who' }, current.account.name),
+        el('p', { class: 'who' }, current.account.name, window.FNX && current.stats.overall ? el('span', { class: 'titre' }, window.FNX.titre(current.stats.overall)) : null),
         el('h2', {}, wN, ' ' + plural(wins, 'victoire', 'victoires') + ' et ', lN, ' ' + plural(losses, 'défaite', 'défaites')),
-        el('p', { class: 'ratio' }, 'Ratio victoires/défaites : ', el('b', {}, losses ? dec(wins / losses) : '—'), ' sur ' + fmt(m) + ' parties')),
+        el('p', { class: 'ratio' }, 'Ratio victoires/défaites : ', el('b', {}, losses ? dec(wins / losses) : '—'), ' sur ' + fmt(m) + ' parties'),
+        bpLine),
       el('div', { class: 'ringwrap' }, ring(pct), el('div', { class: 'ringtxt' }, pN, el('small', {}, 'de victoires'))));
   }
 
@@ -350,8 +354,108 @@
       box.replaceChildren(el('h3', {}, 'Bilan de saison'),
         el('p', { class: 'sub' }, "Les stats de saison viennent de l'API Fortnite. Quand une nouvelle saison démarre, ton ancien bilan est archivé automatiquement à ta prochaine visite."),
         pills, stage, el('div', { class: 'stepper' }, prev, dots, next));
+      if (arch.length) box.append(saisons(snap, arch[arch.length - 1]));
       pick(0);
     }).catch((e) => box.replaceChildren(el('h3', {}, 'Bilan de saison'), el('p', { class: 'error' }, e.message)));
+    return box;
+  }
+
+
+  /* ---------- Session en cours ---------- */
+  function sessionTile() {
+    const id = current.account.id, key = 'fnstats:session:' + id, hkey = 'fnstats:soirees:' + id;
+    const read = (k, d) => { try { return JSON.parse(store.get(k) || 'null') || d; } catch { return d; } };
+    let base = read(key, null), past = read(hkey, []);
+    const box = el('section', { class: 't c12' });
+    const pt = (x) => ({ m: x.matches || 0, w: x.wins || 0, k: x.kills || 0, t10: x.top10 || 0 });
+    const chipsOf = (dm, dk, dw, dt) => el('span', { class: 'chips' },
+      el('span', { class: 'chip' }, '+' + fmt(dm) + ' ' + plural(dm, 'partie', 'parties')),
+      el('span', { class: 'chip' }, '+' + fmt(dk) + ' ' + plural(dk, 'kill', 'kills')),
+      dw > 0 ? el('span', { class: 'chip win' }, '+' + fmt(dw) + ' ' + plural(dw, 'victoire', 'victoires')) : null,
+      el('span', { class: 'chip' }, '+' + fmt(dt) + ' top 10'),
+      dm ? el('span', { class: 'chip' }, 'K/D ' + dec(dk / Math.max(dm - dw, 1))) : null);
+    const refresh = async () => {
+      try { const d = await fetchStats(current.account.name, current.platform); current.stats = d.stats; current.battlePass = d.battlePass; draw(); } catch {}
+    };
+    const schedule = () => {
+      clearInterval(timer);
+      if (base) timer = setInterval(() => { if (!document.body.contains(box)) { clearInterval(timer); return; } refresh(); }, 180000);
+    };
+    function draw() {
+      const kids = [el('h3', {}, 'Session en cours'),
+        el('p', { class: 'sub' }, "Appuie sur « Je commence à jouer » avant ta partie. Tant que cette page reste ouverte, elle se met à jour toutes les 3 minutes ; les stats d'Epic peuvent arriver avec quelques minutes de retard.")];
+      const row = el('div', { class: 'acts' });
+      if (!base) {
+        const b = el('button', { type: 'button' }, 'Je commence à jouer');
+        b.addEventListener('click', () => { base = { t: Date.now(), ...pt(current.stats.overall || {}) }; store.set(key, JSON.stringify(base)); schedule(); draw(); });
+        row.append(b);
+      } else {
+        const c = pt(current.stats.overall || {});
+        const dm = c.m - base.m, dk = c.k - base.k, dw = c.w - base.w, dt = c.t10 - base.t10;
+        kids.push(el('p', { class: 'sub' }, 'Commencée à ' + new Date(base.t).toLocaleTimeString('fr-FR', { timeStyle: 'short' }) + ' (' + Math.round((Date.now() - base.t) / 60000) + ' min)'), chipsOf(dm, dk, dw, dt));
+        const r = el('button', { type: 'button' }, 'Actualiser'), f = el('button', { type: 'button' }, 'Terminer la soirée');
+        r.addEventListener('click', refresh);
+        f.addEventListener('click', () => {
+          past.unshift({ t0: base.t, t1: Date.now(), dm, dk, dw, dt }); past = past.slice(0, 15);
+          store.set(hkey, JSON.stringify(past)); base = null; store.set(key, 'null'); clearInterval(timer); draw();
+        });
+        row.append(r, f);
+      }
+      kids.push(row);
+      if (past.length) kids.push(el('h3', { class: 'sh' }, 'Soirées passées'),
+        el('ul', { class: 'sessions' }, past.map((s) => el('li', {},
+          el('time', {}, new Date(s.t1).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) + ' · ' + Math.max(1, Math.round((s.t1 - s.t0) / 60000)) + ' min'),
+          chipsOf(s.dm, s.dk, s.dw, s.dt)))));
+      box.replaceChildren(...kids);
+    }
+    draw(); schedule();
+    return box;
+  }
+
+  /* ---------- Comparaison de saisons ---------- */
+  function saisons(cur, prev) {
+    const g = (sn) => { const o = sn.s.overall || {}; return { m: o.matches || 0, w: o.wins || 0, k: o.kills || 0, kd: o.kd || 0, h: (o.minutesPlayed || 0) / 60 }; };
+    const a = g(cur), b = g(prev);
+    const evo = (x, y) => (y > 0 ? ((x - y) / y) * 100 : null);
+    const rows = [['Parties', 'm', fmt], ['Victoires', 'w', fmt], ['Kills', 'k', fmt], ['Ratio K/D', 'kd', (v) => dec(v)], ['Heures de jeu', 'h', fmt]];
+    const e = evo(a.w, b.w);
+    return el('div', { class: 'saisons' },
+      el('h3', { class: 'sh' }, 'Saison en cours contre saison précédente'),
+      e != null ? el('p', { class: 'ins' }, 'Pour l’instant, tu as gagné ' + dec(Math.abs(e), 0) + ' % de victoires de ' + (e >= 0 ? 'plus' : 'moins') + ' que lors de la saison précédente (saison en cours, encore incomplète).') : null,
+      el('div', { class: 'vr vr4 head' }, el('span'), el('b', {}, 'En cours'), el('b', {}, 'Précédente'), el('b', {}, 'Écart')),
+      rows.map(([l, k, f]) => {
+        const x = evo(a[k], b[k]);
+        return el('div', { class: 'vr vr4' }, el('span', {}, l), el('span', {}, f(a[k])), el('span', {}, f(b[k])),
+          el('span', { class: x != null && x >= 0 ? 'lead' : '' }, x == null ? '—' : (x >= 0 ? '+' : '') + dec(x, 0) + ' %'));
+      }));
+  }
+
+  /* ---------- Boutique du jour ---------- */
+  function boutique() {
+    const box = el('section', { class: 't c12 shop' }, el('h3', {}, 'Boutique du jour'), el('p', { class: 'sub' }, 'Chargement de la boutique…'));
+    jf('/api/shop').then((d) => {
+      const find = el('input', { type: 'search', placeholder: 'Chercher un objet…', 'aria-label': 'Chercher un objet' });
+      const list = el('div');
+      const card = (i) => el('div', { class: 'card r-' + (i.rarete || 'x') },
+        i.promo ? el('span', { class: 'tag' }, i.promo) : null,
+        i.image ? el('img', { class: 'pic', src: i.image, alt: '', loading: 'lazy' }) : el('div', { class: 'pic' }),
+        el('p', { class: 'nm' }, i.nom),
+        el('p', { class: 'sub tp' }, i.type + (i.nbr > 1 ? ' · ' + i.nbr + ' objets' : '')),
+        el('p', { class: 'pr' }, d.vbuck ? el('img', { src: d.vbuck, alt: 'V-Bucks' }) : null, fmt(i.prix), i.normal > i.prix ? el('s', {}, fmt(i.normal)) : null));
+      const draw = () => {
+        const q = find.value.trim().toLowerCase();
+        const blocks = d.sections.map((s) => {
+          const items = s.items.filter((i) => !q || i.nom.toLowerCase().includes(q) || i.type.toLowerCase().includes(q));
+          return items.length ? el('div', {}, el('h4', {}, s.nom), el('div', { class: 'shopgrid' }, items.map(card))) : null;
+        }).filter(Boolean);
+        list.replaceChildren(...(blocks.length ? blocks : [el('p', { class: 'empty' }, 'Aucun objet ne correspond.')]));
+      };
+      find.addEventListener('input', draw);
+      box.replaceChildren(el('h3', {}, 'Boutique du jour'),
+        el('p', { class: 'sub' }, new Date(d.date).toLocaleDateString('fr-FR', { dateStyle: 'full' }) + ' · ' + d.total + ' offres · renouvelée chaque jour à minuit UTC'),
+        el('div', { class: 'cmp' }, find), list);
+      draw();
+    }).catch((e) => box.replaceChildren(el('h3', {}, 'Boutique du jour'), el('p', { class: 'error' }, e.message)));
     return box;
   }
 
@@ -369,25 +473,27 @@
 
   function buildNav() {
     $('#nav').replaceChildren(...VIEWS.map(([k, label]) => {
-      const b = el('button', { type: 'button', class: 'nv', 'aria-current': String(k === view && (!!current || k === 'classement')) }, label);
-      if (!current && k !== 'classement') b.disabled = true;
+      const b = el('button', { type: 'button', class: 'nv', 'aria-current': String(k === view && (!!current || FREE.includes(k))) }, label);
+      if (!current && !FREE.includes(k)) b.disabled = true;
       b.addEventListener('click', () => { view = k; render(); });
       return b;
     }));
   }
 
   function render() {
+    clearInterval(timer);
     buildNav();
     const out = $('#out');
-    if (!current && view !== 'classement') { out.replaceChildren(intro()); return; }
+    if (!current && !FREE.includes(view)) { out.replaceChildren(intro()); return; }
     const o = current && current.stats.overall;
     const X = window.FNX && o ? window.FNX.parts({ id: current.account.id, name: current.account.name, o, stats: current.stats, sessions, fetchStats }) : {};
     const panel = el('div', { class: 'grid' });
     const items = view === 'apercu' ? apercu(X)
-      : view === 'progression' ? [X.charts, historique(), X.goals, X.badges]
+      : view === 'progression' ? [sessionTile(), X.charts, X.calendar, X.forecast, historique(), X.goals, X.badges]
       : view === 'coffres' ? [coffres()]
       : view === 'amis' ? [X.compare, X.share]
       : view === 'classement' ? [classement()]
+      : view === 'boutique' ? [boutique()]
       : [bilan()];
     items.filter(Boolean).forEach((n, i) => { n.style.setProperty('--i', i); panel.append(n); });
     out.replaceChildren(panel);
@@ -398,7 +504,7 @@
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.error || 'Erreur ' + r.status);
     if (!j.stats || !j.stats.all) throw new Error('Aucune statistique disponible pour ce compte.');
-    return { account: j.account, stats: j.stats.all };
+    return { account: j.account, stats: j.stats.all, battlePass: j.battlePass || null };
   }
 
   async function load(name, platform) {
@@ -422,6 +528,7 @@
     const q = new URLSearchParams(location.search), name = q.get('name');
     if (name) { $('#name').value = name; setPlatform(q.get('platform') || 'epic'); load(name, getPlatform()); }
     else if (q.get('groupe')) { current = null; view = 'classement'; render(); }
+    else if (q.get('vue') === 'boutique') { current = null; view = 'boutique'; render(); }
     else home();
   }
 
@@ -441,6 +548,9 @@
 
   window.addEventListener('popstate', route);
 
+  const themeSel = $('#theme');
+  themeSel.value = document.documentElement.dataset.theme || 'fortnite';
+  themeSel.addEventListener('change', () => { document.documentElement.dataset.theme = themeSel.value; store.set('fnstats:theme', themeSel.value); });
   route();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 })();

@@ -17,6 +17,9 @@ Tant que ces variables manquent, l'onglet Classement affiche « base de données
 ## 3. Déployer
 Mets tous les fichiers sur GitHub : Vercel redéploie automatiquement. (Netlify ne gère que les stats : le classement entre amis demande Vercel.)
 
+## Boutique du jour
+Aucune configuration : l'onglet Boutique lit l'API publique de fortnite-api.com via `/api/shop` (Vercel). Netlify ne gère pas cet onglet ni le classement.
+
 ## Fonctionnement
 - Accueil : l'adresse nue mène toujours à l'accueil ; un profil s'ouvre via `?name=PSEUDO&platform=epic|psn|xbl`.
 - Classement : groupes identifiés par un code de 6 caractères ; les stats sont lues par le serveur, jamais envoyées par le navigateur. Actualisation limitée à une fois toutes les 10 minutes par joueur, 30 joueurs maximum par groupe.
@@ -26,3 +29,8 @@ Mets tous les fichiers sur GitHub : Vercel redéploie automatiquement. (Netlify 
 - Pas de vraie connexion Epic/PSN : le site cherche un pseudo public.
 - Epic ne fournit ni le nombre de coffres ouverts (compteur à saisir à la main) ni la liste des parties une par une.
 - Groupes sans comptes : toute personne qui a le code peut s'y ajouter, et il n'y a pas de suppression de joueur.
+
+## Autres fonctions
+- Thèmes (Fortnite, Sobre, Minuit) mémorisés dans le navigateur.
+- Session en cours, prévisions, calendrier d'activité, titre de joueur : calculés dans le navigateur à partir de tes visites (historique stocké localement).
+- Comparaison de saisons : disponible dès qu'un bilan de saison a été archivé.

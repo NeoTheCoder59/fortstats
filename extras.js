@@ -138,13 +138,16 @@
     const img = el('button', { type: 'button' }, 'Télécharger ma carte');
     const link = el('button', { type: 'button' }, 'Copier le lien');
     img.addEventListener('click', () => {
+      const css = getComputedStyle(document.documentElement), pv = (n, f) => css.getPropertyValue(n).trim() || f;
+      const C = { bg: pv('--panel2', C.bg), loss: pv('--loss', C.loss), win: pv('--accent', C.win), text: pv('--text', C.text) };
       const c = document.createElement('canvas'); c.width = c.height = 1080;
       const x = c.getContext('2d'), F = '"Barlow Condensed", system-ui, sans-serif';
       const bar = (px, w, col) => { x.fillStyle = col; x.beginPath(); if (x.roundRect) x.roundRect(px, 640, w, 36, 18); else x.rect(px, 640, w, 36); x.fill(); };
-      x.fillStyle = '#231E63'; x.fillRect(0, 0, 1080, 1080);
-      x.fillStyle = '#F2F1FF'; x.font = '600 48px ' + F; x.fillText(ctx.name, 80, 140);
+      x.fillStyle = C.bg; x.fillRect(0, 0, 1080, 1080);
+      x.fillStyle = C.text; x.font = '600 48px ' + F; x.fillText(ctx.name, 80, 140);
+      x.fillStyle = C.win; x.font = '800 44px ' + F; x.fillText(titre(o).toUpperCase(), 80, 205); x.fillStyle = C.text;
       x.font = '800 118px ' + F; x.fillText(fmt(wins) + ' victoires', 80, 380); x.fillText(fmt(loss) + ' défaites', 80, 510);
-      bar(80, 920, '#D2535F'); bar(80, Math.max(920 * pct / 100, 36), '#E6B93A');
+      bar(80, 920, C.loss); bar(80, Math.max(920 * pct / 100, 36), C.win);
       x.font = '800 84px ' + F; x.fillText('K/D ' + dec(o.kd), 80, 840); x.fillText(fmt(o.kills) + ' kills', 80, 950);
       x.font = '600 36px ' + F; x.globalAlpha = .75; x.fillText(location.host, 80, 1030);
       c.toBlob(async (blob) => {
@@ -161,13 +164,73 @@
       el('div', { class: 'acts' }, link, img));
   }
 
+
+  // Titre de joueur : règles simples sur les stats de carrière.
+  function titre(o) {
+    const m = o.matches || 0;
+    if (m < 30) return 'Le Rookie';
+    if (rate(o) >= 10) return 'Le Vainqueur';
+    if ((o.kd || 0) >= 2) return 'Le Sniper';
+    if ((o.top10 || 0) / m >= 0.3 && rate(o) < 8) return 'Le Survivant';
+    if ((o.minutesPlayed || 0) / 60 >= 300) return 'Le Marathonien';
+    return 'Le Combattant';
+  }
+
+  // Prévisions : extrapolation de ton rythme entre ta première et ta dernière visite.
+  function forecast(ctx) {
+    const s = ctx.sessions, o = ctx.o, items = [];
+    const dur = (d) => (d < 1 ? "moins d'un jour" : d < 14 ? Math.ceil(d) + ' jours' : d < 70 ? Math.round(d / 7) + ' semaines' : Math.round(d / 30) + ' mois');
+    if (s.length >= 2) {
+      const a = s[0], b = s[s.length - 1], days = (b.t - a.t) / 864e5;
+      if (days >= 1) {
+        const kr = (b.k - a.k) / days, wr = (b.w - a.w) / days;
+        const nk = [1000, 2500, 5000, 10000, 25000, 50000, 100000].find((x) => x > (o.kills || 0));
+        const nw = [10, 25, 50, 100, 250, 500, 1000, 2500].find((x) => x > (o.wins || 0));
+        if (nk && kr > 0) items.push('À ton rythme (' + dec(kr, 1) + ' kills par jour), tu atteindras ' + fmt(nk) + ' kills dans environ ' + dur((nk - o.kills) / kr) + '.');
+        if (nw && wr > 0) items.push('Prochain palier de victoires : ' + fmt(nw) + ', dans environ ' + dur((nw - o.wins) / wr) + '.');
+      }
+    }
+    if (o.kd > 0 && o.kills > 0) {
+      const target = Math.floor(o.kd * 10 + 1e-9) / 10 + 0.1, deaths = o.kills / o.kd;
+      const need = Math.ceil(target * deaths - o.kills);
+      if (need > 0 && isFinite(need)) items.push('Il te manque environ ' + fmt(need) + ' kills sans mourir pour passer à un K/D de ' + dec(target, 1) + '.');
+    }
+    if (!items.length) items.push('Pas encore assez de recul : reviens dans quelques jours pour voir ton rythme.');
+    return el('section', { class: 't c5' }, el('h3', {}, 'Prévisions'), el('p', { class: 'sub' }, 'Estimations à partir de ton historique de visites.'), items.map((x) => el('p', { class: 'ins' }, x)));
+  }
+
+  // Calendrier d'activité : parties relevées entre deux visites, rattachées au jour de la visite.
+  function calendar(ctx) {
+    const s = ctx.sessions, per = {};
+    const key = (t) => { const d = new Date(t); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    for (let i = 1; i < s.length; i++) { const dm = s[i].m - s[i - 1].m; if (dm > 0) { const k = key(s[i].t); per[k] = (per[k] || 0) + dm; } }
+    const WEEKS = 14, today = new Date(); today.setHours(12, 0, 0, 0);
+    const start = new Date(today); start.setDate(today.getDate() - ((today.getDay() + 6) % 7) - (WEEKS - 1) * 7);
+    const max = Math.max(1, ...Object.values(per));
+    const cells = [];
+    for (let w = 0; w < WEEKS; w++) for (let d = 0; d < 7; d++) {
+      const day = new Date(start); day.setDate(start.getDate() + w * 7 + d);
+      if (day > today) { cells.push(el('span', { class: 'd off' })); continue; }
+      const n = per[key(day)] || 0;
+      cells.push(el('span', { class: 'd l' + (n ? Math.min(4, Math.ceil((n / max) * 4)) : 0), title: day.toLocaleDateString('fr-FR', { dateStyle: 'medium' }) + ' : ' + (n ? n + ' parties' : 'aucune partie relevée') }));
+    }
+    let streak = 0; const c = new Date(today);
+    if (!per[key(c)]) c.setDate(c.getDate() - 1);
+    while (per[key(c)]) { streak++; c.setDate(c.getDate() - 1); }
+    return el('section', { class: 't c7' }, el('h3', {}, "Calendrier d'activité"),
+      el('p', { class: 'sub' }, 'Les parties sont rattachées au jour où tu consultes le site : plus tu viens souvent, plus il est précis.'),
+      el('div', { class: 'cal', role: 'img', 'aria-label': 'Calendrier des 14 dernières semaines' }, cells),
+      el('p', { class: 'ins' }, 'Série en cours : ' + streak + ' ' + (streak > 1 ? 'jours' : 'jour') + ' · ' + Object.keys(per).length + ' jours actifs'));
+  }
+
   window.FNX = {
+    titre,
     parts(ctx) {
       if (!ctx.o) return {};
       const ins = insights(ctx.stats);
       return {
         insights: ins.length ? el('section', { class: 't c5' }, el('h3', {}, 'Ce que disent tes stats'), ins.map((s) => el('p', { class: 'ins' }, s))) : null,
-        badges: badges(ctx.o), goals: goals(ctx), charts: charts(ctx), compare: compare(ctx), share: share(ctx),
+        badges: badges(ctx.o), goals: goals(ctx), charts: charts(ctx), compare: compare(ctx), share: share(ctx), forecast: forecast(ctx), calendar: calendar(ctx),
       };
     },
   };
